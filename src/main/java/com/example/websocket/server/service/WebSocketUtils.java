@@ -3,7 +3,7 @@ package com.example.websocket.server.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class ResponseUtil {
+public class WebSocketUtils {
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
 

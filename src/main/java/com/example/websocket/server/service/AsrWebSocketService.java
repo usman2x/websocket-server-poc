@@ -7,15 +7,15 @@ import org.springframework.web.socket.WebSocketSession;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 
-import static com.example.websocket.server.service.ResponseUtil.isSilent;
+import static com.example.websocket.server.service.WebSocketUtils.isSilent;
 
 @Service
-public class WebSocketMessageService {
+public class AsrWebSocketService {
 
-  private final ExternalWebSocketClient externalWebSocketClient;
+  private final AsrWebSocketClient asrWebSocketClient;
 
-  public WebSocketMessageService(ExternalWebSocketClient externalWebSocketClient) {
-    this.externalWebSocketClient = externalWebSocketClient;
+  public AsrWebSocketService(AsrWebSocketClient asrWebSocketClient) {
+    this.asrWebSocketClient = asrWebSocketClient;
   }
 
   /**
@@ -64,7 +64,7 @@ public class WebSocketMessageService {
     return CompletableFuture.runAsync(() -> {
       try {
         System.out.println("Forwarding binary chunk to external server...");
-        CompletableFuture<String> futureResponse = externalWebSocketClient.sendAndReceive(audioChunk);
+        CompletableFuture<String> futureResponse = asrWebSocketClient.sendAndReceive(audioChunk);
 
         // Wait for the response asynchronously
         String transcription = futureResponse.join();
@@ -81,7 +81,7 @@ public class WebSocketMessageService {
           try {
             System.out.println("Sending transcription to client: " + transcription);
             if(!isSilent(audioChunk, 200)){
-              session.sendMessage(new TextMessage(transcription));
+              session.sendMessage(new TextMessage("{\"transcription\": \"" + transcription + "\"}"));
             } else {
               System.out.println("Silent chunk detected, skipping...");
             }
@@ -92,8 +92,14 @@ public class WebSocketMessageService {
           System.err.println("Cannot send message: WebSocket session is closed");
         }
       } catch (Exception e) {
-        System.err.println("Error processing binary chunk: " + e.getMessage());
-        throw new RuntimeException("Error processing binary message 2", e);
+        // Send an error response to the client
+        if (isSessionOpen(session)) {
+          try {
+            session.sendMessage(new TextMessage("{\"transcription\": \"Error: " + e.getMessage() + "\"}"));
+          } catch (Exception ex) {
+            System.err.println("Failed to send error message to client: " + ex.getMessage());
+          }
+        }
       }
     });
   }
